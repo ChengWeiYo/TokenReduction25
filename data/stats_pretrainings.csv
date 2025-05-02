@@ -1,0 +1,10 @@
+pt,release,pt_ds,augreg,train,train_specific,acc_in1k
+vit_base_patch16_224.orig_in21k,2020/10,in21k,weak,fsl,fsl,81.79
+deit_base_patch16_224.fb_in1k,2020/12,in1k,strong,fsl,fsl,81.99
+vit_base_patch16_224_miil.in21k,2021/04,in21kp,strong,fsl,fsl_hierarchical,84.27
+vit_base_patch16_224.in1k_mocov3,2021/04,in1k,medium,ssl,ssl_disc,83.2
+vit_base_patch16_224.dino,2021/04,in1k,medium,ssl,ssl_disc,82.8
+vit_base_patch16_224.mae,2021/11,in1k,weak,ssl,ssl_gen,83.6
+deit3_base_patch16_224.fb_in22k_ft_in1k,2022/04,in21k,strong,fsl,fsl_bce,85.7
+deit3_base_patch16_224.fb_in1k,2022/04,in1k,strong,fsl,fsl_bce,83.79
+vit_base_patch16_clip_224.laion2b,2022/10,laion2b,medium,ssl,ssl_disc,85.47
