@@ -111,15 +111,16 @@ TR_DIC = {
     'notr': 'No TR',
     'dyvit': 'DynamicViT',
     'evit': 'EViT',
+    'topk': 'Top-K',
+    'edar': 'EDAR',
+    'maws': 'MAWS',
+    'dmaws': 'DMAWS',
+    'glsf': 'GLSF',
     'ats': 'ATS',
     'tome': 'ToMe',
     'patchmerger': 'PatchMerger',
     'sit': 'SiT',
-    'dpcknn': 'DPC-KNN',
-    'edar': 'EDA',
-    'maws': 'MAWS',
-    'dmaws': 'DMAWS',
-    'glsf': 'GLSF',
+    'dpcknn': 'DPC-KNN', 
 }
 
 PT_DIC = {

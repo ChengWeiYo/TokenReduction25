@@ -17,17 +17,17 @@ def make_plot(args, df):
         })
 
     if args.type_plot == 'bar':
-        ax = sns.barplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name, data=df)
+        ax = sns.barplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name, palette="tab20", data=df)
     elif args.type_plot == 'box':
-        ax = sns.boxplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name, data=df)
+        ax = sns.boxplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name, palette="tab20", data=df)
     elif args.type_plot == 'violin':
-        ax = sns.violinplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name, data=df)
+        ax = sns.violinplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name, palette="tab20", data=df)
     elif args.type_plot == 'line':
         ax = sns.lineplot(x=args.x_var_name, y=args.y_var_name, marker=args.marker,
-                          hue=args.hue_var_name, style=args.style_var_name,
+                          hue=args.hue_var_name, palette="tab20", style=args.style_var_name,
                           markers=True, linewidth=args.line_width, data=df)
     elif args.type_plot == 'scatter':
-        ax = sns.scatterplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name,
+        ax = sns.scatterplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name, palette="tab20",
                              style=args.style_var_name, size=args.size_var_name,
                              sizes=tuple(args.sizes), legend='brief', data=df)
     else:
@@ -110,7 +110,7 @@ def parse_args():
     parser.add_argument('--output_file', default='acc_vs_method', type=str,
                         help='File path')
     parser.add_argument('--results_dir', type=str,
-                        default=os.path.join('results_all', 'plots'),
+                        default=os.path.join('results_all', 'plots', 'per_pt_bar'),
                         help='The directory where results will be stored')
     parser.add_argument('--save_format', choices=['pdf', 'png', 'jpg'], default='png', type=str,
                         help='Print stats on word level if use this command')
