@@ -15,11 +15,31 @@ def load_df(input_file):
     return df
 
 
-def aggregate_max(df, fp=None, serials=SERIALS_ACC):
+def aggregate_results_no_avg(df, fp=None, serials=SERIALS_ACC,
+                           cols=['serial', 'setting', 'dataset_name', 'method_combined', 'method', 'tr', 'pt', 'kr']):
     df = df[df['serial'].isin(serials)].copy(deep=False)
 
-    # df_agg = df.groupby(['dataset_name'], as_index=False).agg({'acc': 'max'})
-    df = df.loc[df.groupby('dataset_name')['acc'].idxmax()][['dataset_name', 'method_combined', 'acc', 'flops']]
+    df = df[cols + ['acc']]
+    # can add rows that aggregates results across all datasets for a method
+    # df = add_all_cols_group(df, 'dataset_name')
+    # or all methods for a dataset
+    # df = add_all_cols_group(df, 'method')
+
+    df = sort_dataset(df)
+
+    if fp:
+        df.to_csv(fp, header=True, index=False)
+    return df
+
+
+def aggregate_max(df, fp=None, serials=SERIALS_ACC,
+                  cols=['serial', 'setting', 'dataset_name', 'method_combined', 'method', 'tr', 'pt', 'kr']):
+    df = df[df['serial'].isin(serials)].copy(deep=False)
+
+    df = df.groupby(cols, as_index=False).agg({'acc': 'mean', 'flops': 'mean'})
+
+    cols_keep = cols + ['acc', 'flops']
+    df = df.loc[df.groupby(['dataset_name', 'kr'])['acc'].idxmax()][cols_keep]
 
     df = sort_dataset(df, dataset_only=True)
 
@@ -89,7 +109,22 @@ def summarize_results(args):
     # aggregate and save results
     fp = os.path.join(args.results_dir, args.output_file)
 
+    no_avg_results = aggregate_results_no_avg(df, f'{fp}_no_avg.csv', args.serials)
+
     max_results = aggregate_max(df, f'{fp}_max.csv', args.serials)
+
+    if args.tr_averages:
+        df_tr = aggregate_results_main(df, f'{fp}_main_tr.csv', args.serials,
+                                    cols=['serial', 'setting', 'method', 'tr'])
+
+        df_ds_tr = aggregate_results_main(df, f'{fp}_main_ds_tr.csv', args.serials,
+                                    cols=['serial', 'setting', 'dataset_name', 'method', 'tr'])
+
+        df_ds_tr_kr = aggregate_results_main(df, f'{fp}_main_ds_tr_kr.csv', args.serials,
+                                    cols=['serial', 'setting', 'dataset_name', 'method', 'tr', 'kr'])
+
+        df_ds_tr_pt = aggregate_results_main(df, f'{fp}_main_ds_tr_pt.csv', args.serials,
+                                    cols=['serial', 'setting', 'dataset_name', 'method', 'tr', 'pt'])
 
     df_main = aggregate_results_main(df, f'{fp}_main.csv', args.serials)
 
@@ -114,6 +149,8 @@ def parse_args():
 
     parser.add_argument('--keep_datasets', nargs='+', type=str, default=DATASETS)
     parser.add_argument('--serials', nargs='+', type=int, default=SERIALS_ACC)
+
+    parser.add_argument('--tr_averages', action='store_true')
 
     # output
     parser.add_argument('--output_file', type=str, default='acc',

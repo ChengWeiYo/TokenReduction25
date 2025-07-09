@@ -8,11 +8,12 @@ import matplotlib.pyplot as plt
 from utils import standarize_df, rename_vars
 
 
-def get_serial_2_runs():
+def get_serial_2_runs(dataset_name):
     api = wandb.Api()
 
     runs = api.runs(path='nycu_pcs/TokenReductionPT', filters={'$and': [
         {'config.serial': 2},
+        {'config.dataset_name': dataset_name},
     ]})
 
     print('Downloaded runs: ', len(runs))
@@ -21,13 +22,15 @@ def get_serial_2_runs():
 
 def get_gradients_df(runs):
     run = runs[0]
-    history_cols = [c for c in run.history().columns if 'grad' in c] + ['_step']
+    # history_cols = [c for c in run.history().columns if 'grad' in c] + ['_step']
+    history_cols = ['max_grad_all', 'mean_max_grad_layer', 'mean_avg_grad_layer',
+                    'std_avg_grad_layer', 'std_max_grad_layer'] + ['_step']
     cfg_cols = ['serial', 'model', 'dataset_name', 'reduction_loc', 'keep_rate_single',
                 'ifa_head', 'clc', 'num_clr', 'lasso_loss_weight', 'ifa_dws_conv_groups']
 
     df = []
 
-    for run in runs:
+    for i, run in enumerate(runs):
         # just keep until the previous to last value since the last value is nan
         history_temp = run.history()[history_cols].iloc[:-1]
         cfg = {col: run.config.get(col, None) for col in cfg_cols}
@@ -39,30 +42,63 @@ def get_gradients_df(runs):
 
         df.append(history_temp)
 
+        if i % 50 == 0:
+            print(f'{i}/{len(runs)}')
+
     df = pd.concat(df, ignore_index=True)
 
     print(df.head())
     return df
 
 
-def modify_df(df, args):
+def compute_sma(df, var_name, window):
+    df_list = pd.DataFrame()
+    for method in df['method'].unique():
+        for kr in df['kr'].unique():
+            subset = df[(df['method'] == method) & (df['kr'] == kr)].copy(deep=False)
+            subset[var_name] = subset[var_name].rolling(window=window).mean()
+            subset = subset.dropna(subset=[var_name])
+            subset['_step'] = range(0, len(subset))
+            df_list = pd.concat([df_list, subset])
+    return df_list
 
+
+def modify_df(df, args):
+    # standarize df (add pt, method, tr, kr columns)
     df = standarize_df(df)
 
+    # filtering
     df = df[df['pt'] == args.model]
+
     if hasattr(args, 'method_subset') and args.method_subset:
         df = df[df['method'].isin(args.method_subset)]
-        df['method_order'] = pd.Categorical(df['method'], categories=args.method_subset, ordered=True)
-        df = df.sort_values(by=['method_order'], ascending=True)
+
+    if hasattr(args, 'kr_subset') and args.kr_subset:
+        df = df[df['kr'].isin(args.kr_subset)]
+
+
+    # convert y_var into sma/ema
+    if args.sma_window:
+        df = compute_sma(df, args.y_var_name, args.sma_window)
+
+
+    # sort dataframe
+    df['method_order'] = pd.Categorical(df['method'], categories=args.method_subset, ordered=True)
+    df = df.sort_values(by=['kr', 'method_order'], ascending=True)
 
     df['acc'] = df['acc'].round(decimals=1).astype(str)
 
     df = rename_vars(df, var_rename=False, args=args)
 
-    # df['Method: Top-1 Accuracy (%)'] = df['tr'] + df['method'] + ': ' + df['acc']
-    df[args.hue_var_name] = df['method'] + ': ' + df['acc']
-    print(df.head())
 
+    # consider adding pt backbone info
+    if args.add_kr_info:
+        df[args.hue_var_name] = df['method'] + ' (' + df['kr'].astype(str) + ')' + ': ' + df['acc']
+    else:
+        df[args.hue_var_name] = df['method'] + ': ' + df['acc']
+
+
+    print(df.head())
     return df
 
 
@@ -111,19 +147,25 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Subset models and datasets
+    parser.add_argument('--dataset_name', type=str, default='soyageingr1')
     parser.add_argument('--model', type=str,
                         default='deit3_base_patch16_224.fb_in1k',
                         help='name of the variable for x')
     parser.add_argument('--method_subset', type=str, nargs='+',
-                        default=['bl', 'cla', 'clca'])
+                        default=['bl', 'clca'])
+    parser.add_argument('--kr_subset', type=float, nargs='+',
+                        default=[0.25, 0.7])
+    parser.add_argument('--add_kr_info', action='store_false',
+                        help='add kr info to the legend')
+    parser.add_argument('--sma_window', type=int, default=15)
 
     # Make a plot
     parser.add_argument('--x_var_name', type=str, default='_step',
                         help='name of the variable for x')
     parser.add_argument('--y_var_name', type=str, default='max_grad_all',
-                        choices=['std_max_grad_layer', 'max_grad_all',
-                                 'mean_avg_grad_layer', 'mean_max_grad_layer',
-                                 'std_avg_grad_layer'],
+                        choices=['max_grad_all',
+                                 'mean_max_grad_layer', 'std_max_grad_layer',
+                                 'mean_avg_grad_layer', 'std_avg_grad_layer'],
                         help='name of the variable for y')
     parser.add_argument('--hue_var_name', type=str, default='Method: Acc. (%)',
                         help='legend of this bar plot')
@@ -131,7 +173,7 @@ def parse_args():
                         help='orientation of plot "v", "h"')
 
     # output
-    parser.add_argument('--output_file', default='deit3_in1k_max_grad_all', type=str,
+    parser.add_argument('--output_file', default='deit3in1k_max_grad_minimal_0.25_0.7', type=str,
                         help='File path')
     parser.add_argument('--results_dir', type=str,
                         default=os.path.join('results_all', 'gradients'),
@@ -163,7 +205,7 @@ def parse_args():
                         help='adjust the scale of the fonts')
     parser.add_argument('--bg_line_width', type=int, default=0.1,
                         help='adjust the scale of the line widths')
-    parser.add_argument('--line_width', type=float, default=0.75, # 0.75 originally
+    parser.add_argument('--line_width', type=float, default=0.5, # 0.75 originally
                         help='adjust the scale of the line widths')
     parser.add_argument('--fig_size', nargs='+', type=float, default=[4, 3], # [6, 4]
                         help='size of the plot')
@@ -173,10 +215,10 @@ def parse_args():
 
     # Set title, labels and ticks
     parser.add_argument('--title', type=str,
-                        default='Max Gradient Absolute Value vs Train Step',
+                        default='Moving Avg. of Gradients vs Training Step',
                         # on SoyLocal for DeiT3 EViT with KR=10%
                         help='title of the plot')
-    parser.add_argument('--x_label', type=str, default='Step',
+    parser.add_argument('--x_label', type=str, default='Train Step',
                         help='x label of the plot')
     parser.add_argument('--y_label', type=str, default='Gradient Magnitude',
                         help='y label of the plot')
@@ -206,7 +248,7 @@ def main():
         # single color for whole palette (sns defaults to 6 colors)
         args.palette = [args.color for _ in range(len(args.subset_models))]
 
-    runs = get_serial_2_runs()
+    runs = get_serial_2_runs(args.dataset_name)
 
     df = get_gradients_df(runs)
 

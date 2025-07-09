@@ -16,6 +16,12 @@ def make_plot(args, df):
             "figure.figsize": args.fig_size,
         })
 
+    # 自動調整離群點大小：根據圖寬度與資料點數
+    num_hue = len(df[args.hue_var_name].unique()) if args.hue_var_name else 1
+    num_x = len(df[args.x_var_name].unique())
+    scale_factor = max(1, (num_hue * num_x) / 20)  # 調整倍率
+    auto_marker_size = max(1.5, 6 / scale_factor)  # 最小不要小於 1.5
+
     if args.type_plot == 'bar':
         ax = sns.barplot(x=args.x_var_name, y=args.y_var_name, hue=args.hue_var_name, palette="tab20", data=df)
     elif args.type_plot == 'box':
@@ -32,6 +38,12 @@ def make_plot(args, df):
                              sizes=tuple(args.sizes), legend='brief', data=df)
     else:
         raise NotImplementedError
+    
+    # 強制調整所有離群點標記大小與顏色
+    for line in ax.lines:
+        if line.get_marker() == 'o':
+            line.set_markersize(auto_marker_size)
+            line.set_markerfacecolor('none')
 
     # labels and title
     ax.set(xlabel=args.x_label, ylabel=args.y_label, title=args.title, ylim=args.y_lim)
@@ -54,7 +66,7 @@ def make_plot(args, df):
 
     # Change location of legend
     if args.hue_var_name:
-        sns.move_legend(ax, loc=args.loc_legend)
+        sns.move_legend(ax, loc=args.loc_legend, ncol=args.legend_ncol, fontsize=8)
 
     # save plot
     output_file = os.path.join(args.results_dir, f'{args.output_file}.{args.save_format}')
@@ -71,7 +83,7 @@ def parse_args():
 
     # Subset models and datasets
     parser.add_argument('--input_file', type=str,
-                        default=os.path.join('results_all', 'acc', 'acc_main.csv'),
+                        default=os.path.join('results_all', 'acc', 'acc_no_avg.csv'),
                         help='filename for input .csv file')
 
     parser.add_argument('--keep_datasets', nargs='+', type=str, default=None)
@@ -166,6 +178,8 @@ def parse_args():
     # Change location of legend
     parser.add_argument('--loc_legend', type=str, default='upper right',
                         help='location of legend options are upper, lower, left right, center')
+    parser.add_argument('--legend_ncol', type=int, default=1,
+                    help='number of columns in legend')
 
     args= parser.parse_args()
     return args

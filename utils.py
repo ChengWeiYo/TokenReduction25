@@ -35,7 +35,7 @@ SERIALS_EXPLANATIONS = [
     # serial 14:
     'ft_224',
     # serial 20:
-    'ft_224',
+    'ft_448',
 
     # serial 60:
     'ft_448',
@@ -113,6 +113,7 @@ TR_DIC = {
     'evit': 'EViT',
     'topk': 'Top-K',
     'edar': 'EDAR',
+    'nfedar': 'NFEDAR',
     'maws': 'MAWS',
     'dmaws': 'DMAWS',
     'glsf': 'GLSF',
@@ -334,8 +335,6 @@ def standarize_df(df):
 
     # unique combined method
     df['method_combined'] = df['method'] + '_' + df['tr'] + '_' + df['pt'] + '_' + df['kr'].astype(str)
-    # df['method_combined'] = df['method'] + '_' + df['tr'] + '_' + df['pt']
-
     return df
 
 
@@ -415,26 +414,51 @@ def filter_df(df, keep_datasets=None, keep_methods=None, keep_serials=None,
 
 def sort_dataset(df, method_only=False, dataset_only=False, ignore_serial=False):
     if dataset_only:
-        df['dataset_order'] = pd.Categorical(df['dataset_name'], categories=DATASETS, ordered=True)
+        sort_cols = []
+        drop_cols = []
 
-        df = df.sort_values(by=['dataset_order'], ascending=True)
-        df = df.drop(columns=['dataset_order'])
-    elif method_only:
+        if 'dataset_name' in df.columns:
+            df['dataset_order'] = pd.Categorical(df['dataset_name'], categories=DATASETS, ordered=True)
+            sort_cols.append('dataset_order')
+            drop_cols.append('dataset_order')
+
+        if 'kr' in df.columns:
+            sort_cols.append('kr')
+
+        df = df.sort_values(by=sort_cols, ascending=True)
+        df = df.drop(columns=drop_cols)
+    elif method_only and 'method' in df.columns:
         df['method_order'] = pd.Categorical(df['method'], categories=METHODS, ordered=True)
 
         df = df.sort_values(by=['serial', 'method_order'], ascending=True)
         df = df.drop(columns=['method_order'])
     else:
-        df['dataset_order'] = pd.Categorical(df['dataset_name'], categories=DATASETS, ordered=True)
-        df['method_order'] = pd.Categorical(df['method'], categories=METHODS, ordered=True)
-        df['tr_order'] = pd.Categorical(df['tr'], categories=TR_DIC.keys(), ordered=True)
-        df['pt_order'] = pd.Categorical(df['pt'], categories=PT_DIC.keys(), ordered=True)
+        sort_cols = []
+        drop_cols = []
+        if 'dataset_name' in df.columns:
+            df['dataset_order'] = pd.Categorical(df['dataset_name'], categories=DATASETS, ordered=True)
+            sort_cols.append('dataset_order')
+            drop_cols.append('dataset_order')
+        if 'method' in df.columns:
+            df['method_order'] = pd.Categorical(df['method'], categories=METHODS, ordered=True)
+            sort_cols.append('method_order')
+            drop_cols.append('method_order')
+        if 'tr' in df.columns:
+            df['tr_order'] = pd.Categorical(df['tr'], categories=TR_DIC.keys(), ordered=True)
+            sort_cols.append('tr_order')
+            drop_cols.append('tr_order')
+        if 'pt' in df.columns:
+            df['pt_order'] = pd.Categorical(df['pt'], categories=PT_DIC.keys(), ordered=True)
+            sort_cols.append('pt_order')
+            drop_cols.append('pt_order')
+        if 'kr' in df.columns:
+            sort_cols.append('kr')
 
-        if ignore_serial:
-            df = df.sort_values(by=['dataset_order', 'method_order', 'tr_order', 'pt_order', 'kr'], ascending=True)
-        else:
-            df = df.sort_values(by=['serial', 'dataset_order', 'method_order', 'tr_order', 'pt_order', 'kr'], ascending=True)
-        df = df.drop(columns=['method_order', 'dataset_order', 'tr_order', 'pt_order'])
+        if not ignore_serial:
+            sort_cols = ['serial'] + sort_cols
+
+        df = df.sort_values(by=sort_cols, ascending=True)
+        df = df.drop(columns=drop_cols)
     return df
 
 
